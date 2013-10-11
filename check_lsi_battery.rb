@@ -5,6 +5,7 @@ require 'open3'
 
 $options = {:stats=>true,
             :debug=>false,
+            :warn_learn=>true,
             :verbose=>false }
 
 OK       = 0
@@ -12,8 +13,9 @@ WARN     = 1
 CRITICAL = 2
 
 OptionParser.new do |o|
-  o.on('-s', '--no-stats', 'don\'t output performance data') { |b| $options[:stats] = !b }
+  o.on('-s', '--stats',    'don\'t output performance data') { |b| $options[:stats] = !b }
   o.on('-d', '--debug',    'enable debug output') { |b| $options[:debug] = b }
+  o.on('-l', '--learn',    'don\'t warn for degraded state on learn cycle') { |b| $options[:warn_learn] = !b }
   o.on('-v', '--verbose',  'verbose output') { |b| $options[:verbose] = b }
   o.on('-h','this help') { puts o; exit }
   o.parse!
@@ -49,7 +51,11 @@ class Battery
       elsif @state == "Learning"
         status = OK
       elsif @state == "Degraded"
-        status=(status < WARN) ? WARN : status
+        if @learn_requested && !$options[:warn_learn]
+          status=(status < OK ) ? OK : status
+        else
+          status=(status < WARN) ? WARN : status
+        end
       elsif @state == "Failed"
         status = CRITICAL
       elsif @state =~ /Operational\s*/
